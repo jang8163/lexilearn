@@ -1,103 +1,47 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="container">
+      <div className="header">
+        <div style={{fontSize: '4rem', marginBottom: '1.5rem'}}>🎯</div>
+        <h1 className="title">LexiLearn</h1>
+        <p className="subtitle">영어 발음 연습 AI 시스템</p>
+        <p className="description">표현과 단어로 영어 실력을 향상시켜보세요!</p>
+      </div>
+      
+      <div className="grid">
+        <div className="card">
+          <div className="card-icon blue">💬</div>
+          <h3 className="card-title">표현 학습</h3>
+          <p className="card-description">실용적인 영어 표현을 학습하고 발음을 연습하세요</p>
+          <div className="card-content">
+            <p className="card-content-title">포함 내용:</p>
+            <p className="card-content-item">초급/중급/고급 × 6개 카테고리</p>
+            <p className="card-content-item">각 카테고리별 30단계</p>
+            <p className="card-content-item">총 5,400개 표현</p>
+          </div>
+          <button className="card-button">표현 학습 시작 →</button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        
+        <div className="card">
+          <div className="card-icon orange">📚</div>
+          <h3 className="card-title">단어 학습</h3>
+          <p className="card-description">1,350개의 실제 단어로 어휘력을 늘려보세요</p>
+          <div className="card-content">
+            <p className="card-content-title">포함 내용:</p>
+            <p className="card-content-item">초급/중급/고급 × 30단계</p>
+            <p className="card-content-item">각 단계 15개 단어</p>
+            <p className="card-content-item">총 1,350개 단어 (189.txt 기반)</p>
+          </div>
+          <button className="card-button">단어 학습 시작 →</button>
+        </div>
+      </div>
+      
+      <div className="buttons">
+        <button className="button purple">📊 전체 진행 현황 보기</button>
+        <button className="button red">📝 표현 오답노트</button>
+        <button className="button orange">📝 단어 오답노트</button>
+        <button className="button gray">🔄 진행상황 초기화</button>
+      </div>
     </div>
   );
 }
