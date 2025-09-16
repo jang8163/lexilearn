@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { stageManager, StageInfo } from '../../lib/level-stage-manager';
 import { speakingManager, SpeakingResult } from '../../lib/speaking-practice';
@@ -21,7 +21,7 @@ interface LearningItem {
   exampleKorean?: string;
 }
 
-export default function LearnPage() {
+function LearnPageContent() {
   const searchParams = useSearchParams();
   const type = searchParams.get('type') as 'expression' | 'vocabulary';
   const level = searchParams.get('level') || 'beginner';
@@ -675,5 +675,20 @@ export default function LearnPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function LearnPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <LearnPageContent />
+    </Suspense>
   );
 }
