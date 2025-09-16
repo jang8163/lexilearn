@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { stageManager, StageInfo } from '../../lib/level-stage-manager';
 import { speakingManager, SpeakingResult } from '../../lib/speaking-practice';
-import { ALL_EXPRESSIONS_DATA, getExpressionsByStage } from '../../lib/expressions-5400-complete';
-import { getVocabularyByStage, Vocabulary } from '../../lib/vocabulary-data-1350-new';
+import { getExpressionsByStage } from '../../lib/expressions-5400-complete';
+import { getVocabularyByStage } from '../../lib/vocabulary-data-1350-new';
 
 interface LearningItem {
   id: string;
@@ -97,7 +97,7 @@ export default function LearnPage() {
       clearTimeout(recognitionTimeout);
       setRecognitionTimeout(null);
     }
-  }, [currentIndex]);
+  }, [currentIndex, recognitionTimeout]);
 
   const currentItem = items[currentIndex];
 
@@ -487,10 +487,10 @@ export default function LearnPage() {
               <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 mb-6 border border-blue-200">
                 <h3 className="text-lg font-bold text-gray-700 mb-3">📝 예문</h3>
                 <div className="text-xl text-gray-800 mb-3 font-medium">
-                  "{currentItem.example}"
+                  &ldquo;{currentItem.example}&rdquo;
                 </div>
                 <div className="text-lg text-gray-600">
-                  "{currentItem.exampleKorean}"
+                  &ldquo;{currentItem.exampleKorean}&rdquo;
                 </div>
               </div>
             )}
@@ -508,7 +508,7 @@ export default function LearnPage() {
           {recognizedText && (
             <div className="bg-blue-50 rounded-xl p-4 mb-6 border border-blue-200">
               <h3 className="text-sm font-bold text-blue-800 mb-2">🎤 인식된 텍스트</h3>
-              <p className="text-blue-700 font-medium">"{recognizedText}"</p>
+              <p className="text-blue-700 font-medium">&ldquo;{recognizedText}&rdquo;</p>
             </div>
           )}
 

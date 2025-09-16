@@ -1,10 +1,14 @@
 // LexiLearn - 발음 연습 및 AI 평가 시스템
 
 // Web Speech API 타입 정의
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognition;
+}
+
 declare global {
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+    SpeechRecognition: SpeechRecognitionConstructor;
+    webkitSpeechRecognition: SpeechRecognitionConstructor;
   }
 }
 
@@ -147,7 +151,7 @@ export interface SpeakingResult {
     }
   
   // Web Speech API를 사용한 음성 인식
-  private recognition: any | null = null;
+  private recognition: SpeechRecognition | null = null;
   private isListening = false;
 
   initializeSpeechRecognition(): boolean {
@@ -211,7 +215,7 @@ export interface SpeakingResult {
 
       try {
         this.recognition!.start();
-      } catch (error) {
+      } catch (_error) {
         this.isListening = false;
         reject(new Error('음성 인식 시작 실패'));
       }

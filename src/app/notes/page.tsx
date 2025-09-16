@@ -36,19 +36,6 @@ export default function NotesPage() {
     localStorage.setItem('lexilearn-notes', JSON.stringify(newNotes));
   };
 
-  const addNote = (type: 'expression' | 'vocabulary', content: string, korean: string, difficulty: number) => {
-    const newNote: NoteItem = {
-      id: Date.now().toString(),
-      type,
-      content,
-      korean,
-      difficulty,
-      attempts: 1,
-      lastAttempt: new Date(),
-      mistakes: []
-    };
-    saveNotes([...notes, newNote]);
-  };
 
   const removeNote = (id: string) => {
     saveNotes(notes.filter(note => note.id !== id));
