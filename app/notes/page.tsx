@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { speakingManager, SpeakingResult } from '../../lib/speaking-practice';
+import { speakingManager, SpeakingResult } from '../lib/speaking-practice';
 
 interface NoteItem {
   id: string;

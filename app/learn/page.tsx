@@ -2,10 +2,10 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { stageManager, StageInfo } from '../../lib/level-stage-manager';
-import { speakingManager, SpeakingResult } from '../../lib/speaking-practice';
-import { getExpressionsByStage } from '../../lib/expressions-5400-complete';
-import { getVocabularyByStage } from '../../lib/vocabulary-data-1350-new';
+import { stageManager, StageInfo } from '../lib/level-stage-manager';
+import { speakingManager, SpeakingResult } from '../lib/speaking-practice';
+import { getExpressionsByStage } from '../lib/expressions-5400-complete';
+import { getVocabularyByStage } from '../lib/vocabulary-data-1350-new';
 
 interface LearningItem {
   id: string;
@@ -33,7 +33,7 @@ function LearnPageContent() {
   const [isRecording, setIsRecording] = useState(false);
   const [currentResult, setCurrentResult] = useState<SpeakingResult | null>(null);
   const [sessionResults, setSessionResults] = useState<SpeakingResult[]>([]);
-  const [attempts, setAttempts] = useState(0);
+  const [attempts, setAttempts] = useState<{[key: number]: number}>({});
   const [isCompleted, setIsCompleted] = useState(false);
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [wrongAnswers, setWrongAnswers] = useState<LearningItem[]>([]);
@@ -84,10 +84,9 @@ function LearnPageContent() {
     };
   }, [recognitionTimeout]);
 
-  // 문제가 바뀔 때마다 상태 초기화
+  // 문제가 바뀔 때마다 상태 초기화 (시도 횟수는 유지)
   useEffect(() => {
     setCurrentResult(null);
-    setAttempts(0);
     setRecognizedText('');
     setIsRecording(false);
     setRecognitionError('');
@@ -124,6 +123,11 @@ function LearnPageContent() {
   };
 
   const startRecording = async () => {
+    // 이미 녹음 중이면 중복 실행 방지
+    if (isRecording) {
+      return;
+    }
+    
     try {
       setIsRecording(true);
       setRecognizedText('');
@@ -165,7 +169,30 @@ function LearnPageContent() {
           const result = speakingManager.evaluatePronunciationWithSpeechRecognition(recognized, currentItem.english);
           setCurrentResult(result);
           setSessionResults(prev => [...prev, result]);
-          setAttempts(prev => prev + 1);
+          setAttempts(prev => ({
+            ...prev,
+            [currentIndex]: (prev[currentIndex] || 0) + 1
+          }));
+          
+          // 70점 미만이면 오답노트에 추가
+          if (result.overallScore < 70) {
+            setWrongAnswers(prev => [...prev, currentItem]);
+          }
+          
+          // 3번 시도 후 자동으로 다음 문제로 넘어가기
+          const currentAttempts = (attempts[currentIndex] || 0) + 1;
+          if (currentAttempts >= 3 && result.overallScore < 70) {
+            // 3번 시도 후 2초 뒤에 자동으로 다음 문제로 넘어가기
+            setTimeout(() => {
+              if (currentIndex < items.length - 1) {
+                setCurrentIndex(currentIndex + 1);
+                setCurrentResult(null);
+                setRecognizedText('');
+              } else {
+                completeStage();
+              }
+            }, 2000);
+          }
           
         } catch (error) {
           console.error('음성 인식 실패:', error);
@@ -176,8 +203,13 @@ function LearnPageContent() {
             setRecognitionTimeout(null);
           }
           
-          // 음성 인식 실패 시에는 평가하지 않고 사용자에게 알림만 표시
-          setRecognitionError('음성 인식에 실패했습니다. 다시 시도해주세요.');
+          // 에러 메시지에 따라 다른 처리
+          const errorMessage = error instanceof Error ? error.message : '음성 인식에 실패했습니다.';
+          
+          // aborted 오류는 사용자에게 알리지 않음 (의도적인 중단)
+          if (!errorMessage.includes('aborted')) {
+            setRecognitionError(errorMessage);
+          }
         }
       } else {
         // 음성 인식 미지원 시에는 평가하지 않고 사용자에게 알림만 표시
@@ -200,28 +232,16 @@ function LearnPageContent() {
   };
 
   const handleNext = () => {
-    if (currentResult) {
-      // 70점 미만이면 오답노트에 추가
-      if (currentResult.overallScore < 70) {
-        setWrongAnswers(prev => [...prev, currentItem]);
-      }
-
-      // 70점 이상이거나 3번 시도했으면 다음 문제로
-      if (currentResult.overallScore >= 70 || attempts >= 3) {
-        if (currentIndex < items.length - 1) {
-          // 다음 문제로 이동하면서 모든 상태 초기화
-          setCurrentIndex(currentIndex + 1);
-          setCurrentResult(null);
-          setAttempts(0);
-          setRecognizedText(''); // 인식된 텍스트 초기화
-        } else {
-          // 단계 완료
-          completeStage();
-        }
-      } else {
-        // 다시 시도 - 현재 문제에서 재시도
+    if (currentResult && currentResult.overallScore >= 70) {
+      // 70점 이상일 때만 다음 문제로 진행
+      if (currentIndex < items.length - 1) {
+        // 다음 문제로 이동하면서 상태 초기화 (시도 횟수는 유지)
+        setCurrentIndex(currentIndex + 1);
         setCurrentResult(null);
         setRecognizedText(''); // 인식된 텍스트 초기화
+      } else {
+        // 단계 완료
+        completeStage();
       }
     }
   };
@@ -245,19 +265,25 @@ function LearnPageContent() {
 
   const saveWrongAnswers = () => {
     const existingNotes = JSON.parse(localStorage.getItem('lexilearn-notes') || '[]');
-    const newNotes = wrongAnswers.map(item => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      type: type,
-      content: item.english,
-      korean: item.korean,
-      difficulty: 100 - (sessionResults.find(r => r.overallScore < 70)?.overallScore || 0),
-      attempts: attempts,
-      lastAttempt: new Date(),
-      mistakes: ['발음 정확도 부족'],
-      level: level,
-      category: type === 'expression' ? category : undefined,
-      stage: stage
-    }));
+    const newNotes = wrongAnswers.map((item, index) => {
+      const itemIndex = items.findIndex(i => i.id === item.id);
+      const itemAttempts = attempts[itemIndex] || 0;
+      const itemResult = sessionResults.find(r => r.overallScore < 70);
+      
+      return {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        type: type,
+        content: item.english,
+        korean: item.korean,
+        difficulty: 100 - (itemResult?.overallScore || 0),
+        attempts: itemAttempts,
+        lastAttempt: new Date(),
+        mistakes: ['발음 정확도 부족'],
+        level: level,
+        category: type === 'expression' ? category : undefined,
+        stage: stage
+      };
+    });
     
     localStorage.setItem('lexilearn-notes', JSON.stringify([...existingNotes, ...newNotes]));
   };
@@ -430,7 +456,7 @@ function LearnPageContent() {
             <div className="flex justify-between text-sm text-gray-600 mb-2">
               <span>{getLevelName(level)} - {type === 'expression' ? getCategoryName(category) : '단어'} - {stage}단계</span>
               <span className="flex items-center space-x-2">
-                <span>시도 횟수: {attempts}/3</span>
+                <span>시도 횟수: {attempts[currentIndex] || 0}/3</span>
                 <span>{stageInfo?.isUnlocked ? '🔓' : '🔒'}</span>
               </span>
             </div>
@@ -563,12 +589,6 @@ function LearnPageContent() {
                   {currentResult.overallScore}점
                 </div>
                 <p className="text-gray-600 mb-2">{currentResult.feedback}</p>
-                {currentResult.overallScore < 70 && attempts < 3 && (
-                  <p className="text-red-600 font-medium">70점 이상이 필요합니다. 다시 시도해보세요!</p>
-                )}
-                {attempts >= 3 && currentResult.overallScore < 70 && (
-                  <p className="text-orange-600 font-medium">3번 시도 완료. 다음 문제로 넘어갑니다.</p>
-                )}
               </div>
             </div>
           )}
@@ -592,14 +612,14 @@ function LearnPageContent() {
             {!isRecording ? (
               <button
                 onClick={startRecording}
-                disabled={attempts >= 3}
+                disabled={(attempts[currentIndex] || 0) >= 3 || isRecording}
                 className={`font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all text-xl ${
-                  attempts >= 3 
+                  (attempts[currentIndex] || 0) >= 3 || isRecording
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-red-500 hover:bg-red-600 text-white'
                 }`}
               >
-                {attempts >= 3 ? '❌ 시도 횟수 초과' : 
+                {(attempts[currentIndex] || 0) >= 3 ? '❌ 시도 횟수 초과' : 
                  speechSupported ? '🎤 음성 인식 시작' : '🎤 발음 연습하기'}
               </button>
             ) : (
@@ -609,36 +629,28 @@ function LearnPageContent() {
             )}
           </div>
 
-          {/* 다음 버튼 및 복습 버튼 */}
-          {currentResult && (
+          {/* 정답(70점 이상)일 때만 다음 문제 버튼 표시 */}
+          {currentResult && currentResult.overallScore >= 70 && (
             <div className="flex flex-col items-center space-y-4">
-              <div className="flex space-x-4">
-                <button
-                  onClick={handleNext}
-                  className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
-                >
-                  {currentIndex < items.length - 1 ? '다음 문제 →' : '단계 완료!'}
-                </button>
-                
-                {/* 복습 버튼 - 시도 횟수가 3번 미만일 때만 표시 */}
-                {attempts < 3 && (
-                  <button
-                    onClick={() => {
-                      setCurrentResult(null);
-                      setAttempts(0);
-                      setRecognizedText(''); // 인식된 텍스트 초기화
-                      setRecognitionError(''); // 에러 메시지 초기화
-                    }}
-                    className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
-                  >
-                    🔄 다시 복습
-                  </button>
-                )}
-              </div>
-              
-              {attempts < 3 && (
-                <p className="text-sm text-gray-500 text-center">
-                  복습 버튼을 누르면 다시 발음 평가를 받을 수 있습니다
+              <button
+                onClick={handleNext}
+                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
+              >
+                {currentIndex < items.length - 1 ? '다음 문제 →' : '단계 완료!'}
+              </button>
+            </div>
+          )}
+          
+          {/* 오답(70점 미만) 시에는 안내 메시지만 표시 */}
+          {currentResult && currentResult.overallScore < 70 && (
+            <div className="text-center">
+              {(attempts[currentIndex] || 0) >= 3 ? (
+                <p className="text-orange-600 font-medium">
+                  3번 시도 완료. 잠시 후 다음 문제로 넘어갑니다...
+                </p>
+              ) : (
+                <p className="text-red-600 font-medium">
+                  70점 이상이 필요합니다. 다시 음성 인식 버튼을 눌러 시도해주세요.
                 </p>
               )}
             </div>

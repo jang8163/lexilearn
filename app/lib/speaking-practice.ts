@@ -219,52 +219,71 @@ export interface SpeakingResult {
 
   async startSpeechRecognition(): Promise<string> {
     return new Promise((resolve, reject) => {
-      if (!this.recognition) {
-        if (!this.initializeSpeechRecognition()) {
-          reject(new Error('Speech recognition not supported'));
-          return;
-        }
-      }
-
-      if (this.isListening) {
-        reject(new Error('Already listening'));
+      // 매번 새로운 음성 인식 객체 생성
+      if (!this.initializeSpeechRecognition()) {
+        reject(new Error('Speech recognition not supported'));
         return;
       }
 
-      this.isListening = true;
-
-      this.recognition!.onresult = (event) => {
-        const result = event.results[0];
-        if (result.isFinal) {
-          const transcript = result[0].transcript.trim();
-          this.isListening = false;
-          resolve(transcript);
-        }
-      };
-
-      this.recognition!.onerror = (event) => {
+      if (this.isListening) {
+        // 이미 실행 중이면 기존 인식을 중지
+        this.recognition!.stop();
         this.isListening = false;
-        console.error('Speech recognition error:', event.error);
-        
-        // 특정 에러들은 재시도 가능
-        if (event.error === 'no-speech' || event.error === 'audio-capture') {
-          reject(new Error(`음성 인식 에러: ${event.error}. 다시 시도해주세요.`));
-        } else {
-          reject(new Error(`음성 인식 에러: ${event.error}`));
-        }
-      };
-
-      this.recognition!.onend = () => {
-        this.isListening = false;
-      };
-
-      try {
-        this.recognition!.start();
-      } catch {
-        this.isListening = false;
-        reject(new Error('음성 인식 시작 실패'));
       }
+
+      // 잠시 대기 후 새로운 인식 시작
+      setTimeout(() => {
+        this.startNewRecognition(resolve, reject);
+      }, 100);
     });
+  }
+
+  private startNewRecognition(resolve: (value: string) => void, reject: (reason?: any) => void): void {
+    this.isListening = true;
+
+    this.recognition!.onresult = (event) => {
+      const result = event.results[0];
+      if (result.isFinal) {
+        const transcript = result[0].transcript.trim();
+        this.isListening = false;
+        resolve(transcript);
+      }
+    };
+
+    this.recognition!.onerror = (event) => {
+      this.isListening = false;
+      
+      // aborted 오류는 사용자가 의도적으로 중단한 경우이므로 에러로 처리하지 않음
+      if (event.error === 'aborted') {
+        console.log('Speech recognition was aborted');
+        return;
+      }
+      
+      console.error('Speech recognition error:', event.error);
+      
+      // 특정 에러들은 재시도 가능
+      if (event.error === 'no-speech' || event.error === 'audio-capture') {
+        reject(new Error(`음성 인식 에러: ${event.error}. 다시 시도해주세요.`));
+      } else if (event.error === 'network') {
+        reject(new Error('네트워크 연결을 확인해주세요.'));
+      } else if (event.error === 'not-allowed') {
+        reject(new Error('마이크 권한이 허용되지 않았습니다.'));
+      } else {
+        reject(new Error(`음성 인식 에러: ${event.error}`));
+      }
+    };
+
+    this.recognition!.onend = () => {
+      this.isListening = false;
+    };
+
+    try {
+      this.recognition!.start();
+    } catch (error) {
+      this.isListening = false;
+      console.error('Recognition start error:', error);
+      reject(new Error('음성 인식 시작 실패'));
+    }
   }
 
   stopSpeechRecognition(): void {

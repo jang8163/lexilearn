@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { stageManager, UserProgress, StageInfo } from '../../lib/level-stage-manager';
+import { stageManager, UserProgress, StageInfo } from '../lib/level-stage-manager';
 
 export default function ProgressPage() {
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
