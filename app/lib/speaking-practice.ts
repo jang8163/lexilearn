@@ -238,7 +238,7 @@ export interface SpeakingResult {
     });
   }
 
-  private startNewRecognition(resolve: (value: string) => void, reject: (reason?: any) => void): void {
+  private startNewRecognition(resolve: (value: string) => void, reject: (reason?: Error) => void): void {
     this.isListening = true;
 
     this.recognition!.onresult = (event) => {

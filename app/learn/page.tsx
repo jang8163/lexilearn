@@ -265,7 +265,7 @@ function LearnPageContent() {
 
   const saveWrongAnswers = () => {
     const existingNotes = JSON.parse(localStorage.getItem('lexilearn-notes') || '[]');
-    const newNotes = wrongAnswers.map((item, index) => {
+    const newNotes = wrongAnswers.map((item) => {
       const itemIndex = items.findIndex(i => i.id === item.id);
       const itemAttempts = attempts[itemIndex] || 0;
       const itemResult = sessionResults.find(r => r.overallScore < 70);
