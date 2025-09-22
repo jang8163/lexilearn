@@ -1,5 +1,10 @@
 'use client';
 
+import { stageManager } from './lib/level-stage-manager';
+import { vocabularySystem } from './lib/vocabulary-system';
+import { speakingManager } from './lib/speaking-practice';
+import { wrongAnswerTracker } from './lib/wrong-answer-tracker';
+
 export default function Home() {
   const handleExpressionLearning = () => {
     window.location.href = '/expression';
@@ -22,10 +27,36 @@ export default function Home() {
   };
 
   const handleResetProgress = () => {
-    if (confirm('정말로 진행상황을 초기화하시겠습니까?')) {
-      // 실제 진행상황 초기화 로직
-      localStorage.removeItem('lexilearn-notes');
-      window.location.reload();
+    if (confirm('정말로 모든 진행상황을 초기화하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+      try {
+        // 1. 단계별 진행 상황 초기화
+        stageManager.resetProgress();
+        
+        // 2. 단어 학습 진행 상황 초기화
+        vocabularySystem.resetProgress();
+        
+        // 3. 발음 연습 기록 초기화
+        speakingManager.resetHistory();
+        
+        // 4. 오답 추적 데이터 초기화
+        wrongAnswerTracker.clearAll();
+        
+        // 5. 기존 오답노트 초기화 (호환성을 위해)
+        localStorage.removeItem('lexilearn-notes');
+        
+        // 6. 기타 관련 데이터 초기화
+        localStorage.removeItem('lexilearn-stage-progress');
+        localStorage.removeItem('lexilearn-vocabulary-progress');
+        localStorage.removeItem('lexilearn-speaking-history');
+        localStorage.removeItem('lexilearn-wrong-answers');
+        
+        alert('모든 진행상황이 초기화되었습니다.');
+        window.location.reload();
+      } catch (error) {
+        console.error('진행상황 초기화 중 오류 발생:', error);
+        alert('진행상황 초기화 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+        window.location.reload();
+      }
     }
   };
 
@@ -95,9 +126,9 @@ export default function Home() {
             </button>
             <button 
               onClick={handleResetProgress}
-              className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
+              className="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all border-2 border-red-500"
             >
-              🔄 진행상황 초기화
+              🔄 전체 진행상황 초기화
             </button>
           </div>
         </div>

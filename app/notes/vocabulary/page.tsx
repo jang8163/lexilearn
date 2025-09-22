@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { wrongAnswerTracker, WrongAnswerItem } from '../../lib/wrong-answer-tracker';
 
 const LEVELS = [
   { id: 'beginner', name: '초급', color: 'from-green-400 to-green-600' },
@@ -8,68 +9,67 @@ const LEVELS = [
   { id: 'advanced', name: '고급', color: 'from-red-400 to-red-600' }
 ];
 
-interface NoteItem {
-  id: string;
-  type: 'expression' | 'vocabulary';
-  content: string;
-  korean: string;
-  difficulty: number;
-  attempts: number;
-  lastAttempt: Date;
-  mistakes: string[];
-  level?: string;
-  stage?: number;
-}
-
 export default function VocabularyNotesPage() {
-  const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [notes, setNotes] = useState<WrongAnswerItem[]>([]);
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
 
   useEffect(() => {
-    // 로컬 스토리지에서 단어 오답노트만 불러오기
-    const savedNotes = localStorage.getItem('lexilearn-notes');
-    if (savedNotes) {
-      const allNotes = JSON.parse(savedNotes);
-      const vocabularyNotes = allNotes.filter((note: NoteItem) => note.type === 'vocabulary');
-      setNotes(vocabularyNotes);
-    }
+    // 새로운 오답 추적 시스템에서 단어 오답노트만 불러오기
+    const vocabularyNotes = wrongAnswerTracker.getWrongAnswerNotesByType('vocabulary');
+    console.log('단어 오답노트 페이지 - 불러온 단어 오답노트:', vocabularyNotes);
+    console.log('단어 오답노트 페이지 - 단어 오답노트 개수:', vocabularyNotes.length);
+    setNotes(vocabularyNotes);
   }, []);
 
-  const saveNotes = (newNotes: NoteItem[]) => {
-    const allNotes = JSON.parse(localStorage.getItem('lexilearn-notes') || '[]');
-    const expressionNotes = allNotes.filter((note: NoteItem) => note.type === 'expression');
-    const updatedNotes = [...expressionNotes, ...newNotes];
-    localStorage.setItem('lexilearn-notes', JSON.stringify(updatedNotes));
-    setNotes(newNotes);
-  };
-
   const removeNote = (id: string) => {
-    const newNotes = notes.filter(note => note.id !== id);
-    saveNotes(newNotes);
+    // ID에서 타입과 아이템 ID 추출
+    const parts = id.split('_');
+    const type = parts[0] as 'expression' | 'vocabulary';
+    const itemId = parts.slice(1).join('_');
+    
+    wrongAnswerTracker.removeFromNotes(itemId, type);
+    
+    // 상태 업데이트
+    const updatedNotes = wrongAnswerTracker.getWrongAnswerNotesByType('vocabulary');
+    setNotes(updatedNotes);
   };
 
   const updateAttempts = (id: string) => {
-    const newNotes = notes.map(note => 
-      note.id === id 
-        ? { ...note, attempts: note.attempts + 1, lastAttempt: new Date() }
-        : note
-    );
-    saveNotes(newNotes);
+    // ID에서 타입과 아이템 ID 추출
+    const parts = id.split('_');
+    const type = parts[0] as 'expression' | 'vocabulary';
+    const itemId = parts.slice(1).join('_');
+    
+    wrongAnswerTracker.updateAttempts(itemId, type);
+    
+    // 상태 업데이트
+    const updatedNotes = wrongAnswerTracker.getWrongAnswerNotesByType('vocabulary');
+    setNotes(updatedNotes);
+  };
+
+  const practiceWrongAnswer = (note: WrongAnswerItem) => {
+    // 오답 연습을 위한 URL 생성
+    const practiceUrl = `/learn?type=${note.type}&level=${note.level}&stage=${note.stage}&practice=${note.id}`;
+    if (note.type === 'expression' && note.category) {
+      window.location.href = `${practiceUrl}&category=${note.category}`;
+    } else {
+      window.location.href = practiceUrl;
+    }
   };
 
   const filteredNotes = selectedLevel === 'all' 
     ? notes 
     : notes.filter(note => note.level === selectedLevel);
 
-  const getDifficultyColor = (difficulty: number) => {
-    if (difficulty >= 80) return 'text-red-600 bg-red-100';
-    if (difficulty >= 60) return 'text-orange-600 bg-orange-100';
+  const getDifficultyColor = (wrongCount: number) => {
+    if (wrongCount >= 5) return 'text-red-600 bg-red-100';
+    if (wrongCount >= 3) return 'text-orange-600 bg-orange-100';
     return 'text-yellow-600 bg-yellow-100';
   };
 
-  const getDifficultyText = (difficulty: number) => {
-    if (difficulty >= 80) return '매우 어려움';
-    if (difficulty >= 60) return '어려움';
+  const getDifficultyText = (wrongCount: number) => {
+    if (wrongCount >= 5) return '매우 어려움';
+    if (wrongCount >= 3) return '어려움';
     return '보통';
   };
 
@@ -82,7 +82,7 @@ export default function VocabularyNotesPage() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <button
-            onClick={() => window.history.back()}
+            onClick={() => window.location.href = '/'}
             className="mb-4 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors"
           >
             ← 돌아가기
@@ -172,13 +172,14 @@ export default function VocabularyNotesPage() {
                             {getLevelName(note.level)}
                           </span>
                         )}
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(note.difficulty)}`}>
-                          {getDifficultyText(note.difficulty)}
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getDifficultyColor(note.wrongCount)}`}>
+                          {getDifficultyText(note.wrongCount)}
                         </span>
                       </div>
                       <h3 className="text-xl font-bold text-gray-800 mb-2">{note.content}</h3>
                       <p className="text-lg text-gray-600 mb-2">{note.korean}</p>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        <span>틀린 횟수: {note.wrongCount}회</span>
                         <span>시도 횟수: {note.attempts}회</span>
                         <span>마지막 시도: {new Date(note.lastAttempt).toLocaleDateString('ko-KR')}</span>
                         {note.stage && <span>단계: {note.stage}</span>}
@@ -186,7 +187,7 @@ export default function VocabularyNotesPage() {
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => updateAttempts(note.id)}
+                        onClick={() => practiceWrongAnswer(note)}
                         className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                       >
                         다시 연습

@@ -78,6 +78,11 @@ export interface SpeakingResult {
   export class SpeakingPracticeManager {
     private currentSession: PracticeSession | null = null;
     private practiceHistory: SpeakingResult[] = [];
+    private readonly STORAGE_KEY = 'lexilearn-speaking-history';
+
+    constructor() {
+      this.loadFromStorage();
+    }
   
     startPracticeSession(expressions: string[]): PracticeSession {
       this.currentSession = {
@@ -127,6 +132,7 @@ export interface SpeakingResult {
       }
       
       this.practiceHistory.push(result);
+      this.saveToStorage();
       return result;
     }
   
@@ -193,6 +199,40 @@ export interface SpeakingResult {
   
     resetHistory(): void {
       this.practiceHistory = [];
+      this.saveToStorage();
+    }
+
+    /**
+     * 로컬 스토리지에서 데이터를 불러옵니다.
+     */
+    private loadFromStorage(): void {
+      if (typeof window === 'undefined') return;
+      
+      try {
+        const savedData = localStorage.getItem(this.STORAGE_KEY);
+        if (savedData) {
+          const data = JSON.parse(savedData);
+          this.practiceHistory = data.map((result: SpeakingResult & { timestamp: string }) => ({
+            ...result,
+            timestamp: new Date(result.timestamp)
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load speaking history from storage:', error);
+      }
+    }
+
+    /**
+     * 로컬 스토리지에 데이터를 저장합니다.
+     */
+    private saveToStorage(): void {
+      if (typeof window === 'undefined') return;
+      
+      try {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.practiceHistory));
+      } catch (error) {
+        console.error('Failed to save speaking history to storage:', error);
+      }
     }
   
   // Web Speech API를 사용한 음성 인식

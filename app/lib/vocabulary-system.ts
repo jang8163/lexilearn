@@ -37,9 +37,11 @@ export class VocabularySystem {
   private studyHistory: StudyResult[] = [];
   private learnedWords: Set<string> = new Set();
   private masteredWords: Set<string> = new Set();
+  private readonly STORAGE_KEY = 'lexilearn-vocabulary-progress';
 
   constructor() {
     this.initializeProgress();
+    this.loadFromStorage();
   }
 
   private initializeProgress(): void {
@@ -119,6 +121,7 @@ export class VocabularySystem {
     };
 
     this.studyHistory.push(result);
+    this.saveToStorage();
 
     // 다음 단어로 이동
     this.currentSession.currentIndex++;
@@ -151,6 +154,7 @@ export class VocabularySystem {
       }
     }
 
+    this.saveToStorage();
     this.currentSession.endTime = new Date();
     const result = progress || null;
     this.currentSession = null;
@@ -219,6 +223,70 @@ export class VocabularySystem {
     this.learnedWords.clear();
     this.masteredWords.clear();
     this.initializeProgress();
+    this.saveToStorage();
+  }
+
+  /**
+   * 로컬 스토리지에서 데이터를 불러옵니다.
+   */
+  private loadFromStorage(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const savedData = localStorage.getItem(this.STORAGE_KEY);
+      if (savedData) {
+        const data = JSON.parse(savedData);
+        
+        // 진행 상황 복원
+        if (data.progress) {
+          this.progress = new Map(data.progress);
+          // Date 객체 복원
+          this.progress.forEach(progress => {
+            progress.lastStudied = new Date(progress.lastStudied);
+          });
+        }
+        
+        // 학습 기록 복원
+        if (data.studyHistory) {
+          this.studyHistory = data.studyHistory.map((result: StudyResult & { timestamp: string }) => ({
+            ...result,
+            timestamp: new Date(result.timestamp)
+          }));
+        }
+        
+        // 학습된 단어들 복원
+        if (data.learnedWords) {
+          this.learnedWords = new Set(data.learnedWords);
+        }
+        
+        // 마스터된 단어들 복원
+        if (data.masteredWords) {
+          this.masteredWords = new Set(data.masteredWords);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load vocabulary progress from storage:', error);
+    }
+  }
+
+  /**
+   * 로컬 스토리지에 데이터를 저장합니다.
+   */
+  private saveToStorage(): void {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const data = {
+        progress: Array.from(this.progress.entries()),
+        studyHistory: this.studyHistory,
+        learnedWords: Array.from(this.learnedWords),
+        masteredWords: Array.from(this.masteredWords)
+      };
+      
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.error('Failed to save vocabulary progress to storage:', error);
+    }
   }
 
   // 단어 검색
@@ -235,10 +303,12 @@ export class VocabularySystem {
 
   addToFavorites(wordId: string): void {
     this.favoriteWords.add(wordId);
+    this.saveToStorage();
   }
 
   removeFromFavorites(wordId: string): void {
     this.favoriteWords.delete(wordId);
+    this.saveToStorage();
   }
 
   getFavoriteWords(): Vocabulary[] {

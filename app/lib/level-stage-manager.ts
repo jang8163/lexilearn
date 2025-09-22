@@ -8,6 +8,7 @@ export interface StageInfo {
     isCompleted: boolean;
     score: number;
     completedAt?: Date;
+    type?: 'expression' | 'vocabulary'; // 학습 타입 추가
   }
   
   export interface UserProgress {
@@ -44,6 +45,7 @@ export interface StageInfo {
         'professional_communication'
       ];
   
+      // 표현 학습용 단계들 생성
       levels.forEach(level => {
         categories.forEach(category => {
           for (let stage = 1; stage <= 30; stage++) {
@@ -54,10 +56,27 @@ export interface StageInfo {
               stage,
               isUnlocked: stage === 1, // 첫 번째 단계만 잠금 해제
               isCompleted: false,
-              score: 0
+              score: 0,
+              type: 'expression'
             });
           }
         });
+      });
+
+      // 단어 학습용 단계들 생성 (별도 키 사용)
+      levels.forEach(level => {
+        for (let stage = 1; stage <= 30; stage++) {
+          const key = `vocabulary_${level}_${stage}`;
+          this.stages.set(key, {
+            level,
+            category: 'daily_conversation',
+            stage,
+            isUnlocked: stage === 1, // 첫 번째 단계만 잠금 해제
+            isCompleted: false,
+            score: 0,
+            type: 'vocabulary'
+          });
+        }
       });
     }
   
@@ -75,21 +94,44 @@ export interface StageInfo {
       };
     }
   
-    getStageInfo(level: string, category: string, stage: number): StageInfo | null {
-      const key = `${level}_${category}_${stage}`;
-      return this.stages.get(key) || null;
+    getStageInfo(level: string, category: string, stage: number, type?: 'expression' | 'vocabulary'): StageInfo | null {
+      let key: string;
+      
+      if (type === 'vocabulary') {
+        // 단어 학습의 경우 별도 키 사용
+        key = `vocabulary_${level}_${stage}`;
+      } else {
+        // 표현 학습의 경우 기존 키 사용
+        key = `${level}_${category}_${stage}`;
+      }
+      
+      const stageInfo = this.stages.get(key);
+      
+      if (stageInfo && type) {
+        // 타입이 지정된 경우, 해당 타입의 진행 상황을 반환
+        return {
+          ...stageInfo,
+          type
+        };
+      }
+      
+      return stageInfo || null;
     }
   
     getAllStages(): StageInfo[] {
       return Array.from(this.stages.values());
     }
   
-    getStagesByLevel(level: string): StageInfo[] {
-      return Array.from(this.stages.values()).filter(stage => stage.level === level);
+    getStagesByLevel(level: string, type?: 'expression' | 'vocabulary'): StageInfo[] {
+      return Array.from(this.stages.values()).filter(stage => 
+        stage.level === level && (!type || stage.type === type)
+      );
     }
   
-    getStagesByCategory(category: string): StageInfo[] {
-      return Array.from(this.stages.values()).filter(stage => stage.category === category);
+    getStagesByCategory(category: string, type?: 'expression' | 'vocabulary'): StageInfo[] {
+      return Array.from(this.stages.values()).filter(stage => 
+        stage.category === category && (!type || stage.type === type)
+      );
     }
   
     unlockStage(level: string, category: string, stage: number): boolean {
@@ -103,25 +145,53 @@ export interface StageInfo {
       return false;
     }
   
-    completeStage(level: string, category: string, stage: number, score: number): boolean {
-      const key = `${level}_${category}_${stage}`;
+    completeStage(level: string, category: string, stage: number, score: number, type?: 'expression' | 'vocabulary'): boolean {
+      let key: string;
+      
+      if (type === 'vocabulary') {
+        // 단어 학습의 경우 별도 키 사용
+        key = `vocabulary_${level}_${stage}`;
+      } else {
+        // 표현 학습의 경우 기존 키 사용
+        key = `${level}_${category}_${stage}`;
+      }
+      
       const stageInfo = this.stages.get(key);
       
       if (stageInfo && stageInfo.isUnlocked) {
         stageInfo.isCompleted = true;
         stageInfo.score = score;
         stageInfo.completedAt = new Date();
+        if (type) {
+          stageInfo.type = type;
+        }
 
-        // 다음 단계 잠금 해제
-        const nextStageKey = `${level}_${category}_${stage + 1}`;
+        // 다음 단계 잠금 해제 (같은 타입의 경우에만)
+        let nextStageKey: string;
+        if (type === 'vocabulary') {
+          nextStageKey = `vocabulary_${level}_${stage + 1}`;
+        } else {
+          nextStageKey = `${level}_${category}_${stage + 1}`;
+        }
+        
         const nextStage = this.stages.get(nextStageKey);
         if (nextStage) {
-          nextStage.isUnlocked = true;
+          // 같은 타입이거나 타입이 없는 경우에만 잠금 해제
+          if (!nextStage.type || nextStage.type === type) {
+            nextStage.isUnlocked = true;
+            if (type) {
+              nextStage.type = type;
+            }
+          }
         }
 
         // 사용자 진행 상황 업데이트
         if (this.userProgress) {
-          this.userProgress.completedExpressions++;
+          if (type === 'expression') {
+            this.userProgress.completedExpressions++;
+          } else if (type === 'vocabulary') {
+            this.userProgress.completedWords++;
+          }
           this.userProgress.lastActivity = new Date();
           this.updateOverallAccuracy();
         }

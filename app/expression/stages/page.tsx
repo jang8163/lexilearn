@@ -29,10 +29,12 @@ function ExpressionStagesContent() {
   const [selectedLevel, setSelectedLevel] = useState(level);
 
   useEffect(() => {
-    // 해당 레벨과 카테고리의 모든 단계 정보 가져오기
+    // 해당 레벨과 카테고리의 모든 단계 정보 가져오기 (표현 학습만)
     const allStages = stageManager.getAllStages();
     const filteredStages = allStages.filter(stage => 
-      stage.level === selectedLevel && stage.category === selectedCategory
+      stage.level === selectedLevel && 
+      stage.category === selectedCategory &&
+      (stage.type === 'expression' || stage.type === undefined) // 표현 학습 또는 타입이 없는 경우
     );
     setStages(filteredStages.sort((a, b) => a.stage - b.stage));
   }, [selectedLevel, selectedCategory]);
@@ -171,7 +173,7 @@ function ExpressionStagesContent() {
                       {isCompleted ? (
                         <div>
                           <div className="text-green-600 font-medium">완료</div>
-                          <div className="text-green-500">{score}점</div>
+                          <div className="text-green-500">{Math.round(score)}점</div>
                         </div>
                       ) : isUnlocked ? (
                         <div className="text-blue-600">시작</div>

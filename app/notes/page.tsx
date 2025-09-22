@@ -2,51 +2,61 @@
 
 import { useState, useEffect } from 'react';
 import { speakingManager, SpeakingResult } from '../lib/speaking-practice';
+import { wrongAnswerTracker, WrongAnswerItem } from '../lib/wrong-answer-tracker';
 
-interface NoteItem {
-  id: string;
-  type: 'expression' | 'vocabulary';
-  content: string;
-  korean: string;
-  difficulty: number;
-  attempts: number;
-  lastAttempt: Date;
-  mistakes: string[];
-}
+// NoteItem 인터페이스는 더 이상 사용하지 않음 (WrongAnswerItem 사용)
 
 export default function NotesPage() {
-  const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [notes, setNotes] = useState<WrongAnswerItem[]>([]);
   const [selectedType, setSelectedType] = useState<'expression' | 'vocabulary' | 'all'>('all');
   const [practiceHistory, setPracticeHistory] = useState<SpeakingResult[]>([]);
 
   useEffect(() => {
-    // 로컬 스토리지에서 오답노트 불러오기
-    const savedNotes = localStorage.getItem('lexilearn-notes');
-    if (savedNotes) {
-      setNotes(JSON.parse(savedNotes));
-    }
+    // 새로운 오답 추적 시스템에서 오답노트 불러오기
+    const wrongAnswerNotes = wrongAnswerTracker.getWrongAnswerNotes();
+    console.log('오답노트 페이지 - 불러온 오답노트:', wrongAnswerNotes);
+    console.log('오답노트 페이지 - 오답노트 개수:', wrongAnswerNotes.length);
+    setNotes(wrongAnswerNotes);
 
     // 연습 기록 불러오기
     const history = speakingManager.getPracticeHistory();
     setPracticeHistory(history);
   }, []);
 
-  const saveNotes = (newNotes: NoteItem[]) => {
-    setNotes(newNotes);
-    localStorage.setItem('lexilearn-notes', JSON.stringify(newNotes));
-  };
-
-
   const removeNote = (id: string) => {
-    saveNotes(notes.filter(note => note.id !== id));
+    // ID에서 타입과 아이템 ID 추출
+    const parts = id.split('_');
+    const type = parts[0] as 'expression' | 'vocabulary';
+    const itemId = parts.slice(1).join('_');
+    
+    wrongAnswerTracker.removeFromNotes(itemId, type);
+    
+    // 상태 업데이트
+    const updatedNotes = wrongAnswerTracker.getWrongAnswerNotes();
+    setNotes(updatedNotes);
   };
 
   const updateAttempts = (id: string) => {
-    saveNotes(notes.map(note => 
-      note.id === id 
-        ? { ...note, attempts: note.attempts + 1, lastAttempt: new Date() }
-        : note
-    ));
+    // ID에서 타입과 아이템 ID 추출
+    const parts = id.split('_');
+    const type = parts[0] as 'expression' | 'vocabulary';
+    const itemId = parts.slice(1).join('_');
+    
+    wrongAnswerTracker.updateAttempts(itemId, type);
+    
+    // 상태 업데이트
+    const updatedNotes = wrongAnswerTracker.getWrongAnswerNotes();
+    setNotes(updatedNotes);
+  };
+
+  const practiceWrongAnswer = (note: WrongAnswerItem) => {
+    // 오답 연습을 위한 URL 생성
+    const practiceUrl = `/learn?type=${note.type}&level=${note.level}&stage=${note.stage}&practice=${note.id}`;
+    if (note.type === 'expression' && note.category) {
+      window.location.href = `${practiceUrl}&category=${note.category}`;
+    } else {
+      window.location.href = practiceUrl;
+    }
   };
 
   const filteredNotes = selectedType === 'all' 
@@ -167,13 +177,14 @@ export default function NotesPage() {
                       <h3 className="text-xl font-bold text-gray-800 mb-2">{note.content}</h3>
                       <p className="text-lg text-gray-600 mb-2">{note.korean}</p>
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <span>시도 횟수: {note.attempts}회</span>
+                        <span>틀린 횟수: {note.wrongCount}회</span>
+                        <span>총 시도: {note.attempts}회</span>
                         <span>마지막 시도: {note.lastAttempt.toLocaleDateString('ko-KR')}</span>
                       </div>
                     </div>
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => updateAttempts(note.id)}
+                        onClick={() => practiceWrongAnswer(note)}
                         className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                       >
                         다시 연습

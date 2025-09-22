@@ -18,17 +18,43 @@ function VocabularyStagesContent() {
   const [selectedLevel, setSelectedLevel] = useState(level);
 
   useEffect(() => {
-    // 해당 레벨의 모든 단계 정보 가져오기 (단어 학습은 카테고리가 없으므로 daily_conversation으로 통일)
+    // 해당 레벨의 모든 단계 정보 가져오기 (단어 학습만)
     const allStages = stageManager.getAllStages();
-    const filteredStages = allStages.filter(stage => 
-      stage.level === selectedLevel && stage.category === 'daily_conversation'
+    console.log('모든 단계:', allStages);
+    
+    let filteredStages = allStages.filter(stage => 
+      stage.level === selectedLevel && 
+      stage.category === 'daily_conversation' &&
+      stage.type === 'vocabulary' // 단어 학습만
     );
+    
+    console.log('필터링된 단계:', filteredStages);
+    console.log('선택된 레벨:', selectedLevel);
+    
+    // 단어 학습 단계가 없으면 기본 단계들 생성
+    if (filteredStages.length === 0) {
+      console.log('단어 학습 단계가 없음. 기본 단계들 생성 중...');
+      filteredStages = Array.from({ length: 30 }, (_, index) => ({
+        level: selectedLevel,
+        category: 'daily_conversation',
+        stage: index + 1,
+        isUnlocked: index === 0, // 첫 번째 단계만 잠금 해제
+        isCompleted: false,
+        score: 0,
+        type: 'vocabulary' as const
+      }));
+    }
+    
     setStages(filteredStages.sort((a, b) => a.stage - b.stage));
   }, [selectedLevel]);
 
-  const handleStageClick = (stage: StageInfo) => {
-    if (stage.isUnlocked) {
-      window.location.href = `/learn?type=vocabulary&level=${selectedLevel}&stage=${stage.stage}`;
+  const handleStageClick = (stage: StageInfo | number) => {
+    const stageNumber = typeof stage === 'number' ? stage : stage.stage;
+    const stageInfo = typeof stage === 'number' ? stages.find(s => s.stage === stageNumber) : stage;
+    
+    if (stageInfo?.isUnlocked || stageNumber === 1) {
+      console.log('단계 클릭:', stageNumber);
+      window.location.href = `/learn?type=vocabulary&level=${selectedLevel}&stage=${stageNumber}`;
     }
   };
 
@@ -114,7 +140,7 @@ function VocabularyStagesContent() {
               return (
                 <button
                   key={stageNumber}
-                  onClick={() => stageInfo && handleStageClick(stageInfo)}
+                  onClick={() => handleStageClick(stageNumber)}
                   disabled={!isUnlocked}
                   className={`relative p-4 rounded-2xl border-2 transition-all transform hover:scale-105 ${
                     isCompleted
@@ -130,7 +156,7 @@ function VocabularyStagesContent() {
                       {isCompleted ? (
                         <div>
                           <div className="text-green-600 font-medium">완료</div>
-                          <div className="text-green-500">{score}점</div>
+                          <div className="text-green-500">{Math.round(score)}점</div>
                         </div>
                       ) : isUnlocked ? (
                         <div className="text-orange-600">시작</div>

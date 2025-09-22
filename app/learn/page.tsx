@@ -6,6 +6,7 @@ import { stageManager, StageInfo } from '../lib/level-stage-manager';
 import { speakingManager, SpeakingResult } from '../lib/speaking-practice';
 import { getExpressionsByStage } from '../lib/expressions-5400-complete';
 import { getVocabularyByStage } from '../lib/vocabulary-data-1350-new';
+import { wrongAnswerTracker } from '../lib/wrong-answer-tracker';
 
 interface LearningItem {
   id: string;
@@ -27,6 +28,7 @@ function LearnPageContent() {
   const level = searchParams.get('level') || 'beginner';
   const category = searchParams.get('category') || 'daily_conversation';
   const stage = parseInt(searchParams.get('stage') || '1');
+  const practiceId = searchParams.get('practice'); // 오답 연습용 ID
 
   const [items, setItems] = useState<LearningItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -37,7 +39,9 @@ function LearnPageContent() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [stageInfo, setStageInfo] = useState<StageInfo | null>(null);
   const [wrongAnswers, setWrongAnswers] = useState<LearningItem[]>([]);
+  const [newWrongAnswerNotes, setNewWrongAnswerNotes] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [wrongAnswerCounts, setWrongAnswerCounts] = useState<{[key: string]: number}>({});
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [speechSupported, setSpeechSupported] = useState(false);
   const [recognitionTimeout, setRecognitionTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -49,31 +53,61 @@ function LearnPageContent() {
     setSpeechSupported(!!SpeechRecognition);
 
     // 단계 정보 가져오기
-    const info = stageManager.getStageInfo(level, category, stage);
+    const finalCategory = type === 'vocabulary' ? 'daily_conversation' : category;
+    const info = stageManager.getStageInfo(level, finalCategory, stage, type);
     setStageInfo(info);
 
-    // 학습 아이템 가져오기
-    if (type === 'expression') {
-      const expressions = getExpressionsByStage(level, category, stage);
-      setItems(expressions);
+    // 오답 연습 모드인지 확인
+    if (practiceId) {
+      // 오답 연습 모드: 해당 오답만 로드
+      const wrongAnswerNotes = wrongAnswerTracker.getWrongAnswerNotes();
+      const practiceNote = wrongAnswerNotes.find(note => note.id === practiceId);
+      
+      if (practiceNote) {
+        const practiceItem: LearningItem = {
+          id: practiceNote.id,
+          english: practiceNote.content,
+          korean: practiceNote.korean,
+          level: practiceNote.level,
+          category: practiceNote.category,
+          stage: practiceNote.stage
+        };
+        setItems([practiceItem]);
+        console.log('오답 연습 모드:', practiceItem);
+      } else {
+        console.error('오답 연습 항목을 찾을 수 없습니다:', practiceId);
+        // 기본 학습으로 폴백
+        loadDefaultItems();
+      }
     } else {
-      const vocabulary = getVocabularyByStage(level, stage);
-      // Vocabulary 타입을 LearningItem 타입으로 변환
-      const vocabularyItems: LearningItem[] = vocabulary.map(vocab => ({
-        id: vocab.id,
-        english: vocab.english,
-        korean: vocab.korean,
-        level: vocab.level,
-        stage: vocab.stage,
-        pronunciation: vocab.pronunciation,
-        partOfSpeech: vocab.partOfSpeech,
-        definition: vocab.definition,
-        example: vocab.example,
-        exampleKorean: vocab.exampleKorean
-      }));
-      setItems(vocabularyItems);
+      // 일반 학습 모드
+      loadDefaultItems();
     }
-  }, [type, level, category, stage]);
+
+    function loadDefaultItems() {
+      // 학습 아이템 가져오기
+      if (type === 'expression') {
+        const expressions = getExpressionsByStage(level, category, stage);
+        setItems(expressions);
+      } else {
+        const vocabulary = getVocabularyByStage(level, stage);
+        // Vocabulary 타입을 LearningItem 타입으로 변환
+        const vocabularyItems: LearningItem[] = vocabulary.map(vocab => ({
+          id: vocab.id,
+          english: vocab.english,
+          korean: vocab.korean,
+          level: vocab.level,
+          stage: vocab.stage,
+          pronunciation: vocab.pronunciation,
+          partOfSpeech: vocab.partOfSpeech,
+          definition: vocab.definition,
+          example: vocab.example,
+          exampleKorean: vocab.exampleKorean
+        }));
+        setItems(vocabularyItems);
+      }
+    }
+  }, [type, level, category, stage, practiceId]);
 
   // 컴포넌트 언마운트 시 타임아웃 정리
   useEffect(() => {
@@ -174,24 +208,71 @@ function LearnPageContent() {
             [currentIndex]: (prev[currentIndex] || 0) + 1
           }));
           
-          // 70점 미만이면 오답노트에 추가
+          // 70점 미만이면 오답 추적기에 기록
           if (result.overallScore < 70) {
+            const itemKey = `${type}_${currentItem.id}`;
+            const currentWrongCount = (wrongAnswerCounts[itemKey] || 0) + 1;
+            
+            console.log('틀린 답안 기록:', {
+              itemId: currentItem.id,
+              type,
+              score: result.overallScore,
+              content: currentItem.english,
+              wrongCount: currentWrongCount
+            });
+            
+            // 세션 내 틀린 횟수 업데이트
+            setWrongAnswerCounts(prev => ({
+              ...prev,
+              [itemKey]: currentWrongCount
+            }));
+            
+            const wasAddedToNotes = wrongAnswerTracker.recordWrongAnswer(
+              currentItem.id,
+              type,
+              currentItem.english,
+              currentItem.korean,
+              level,
+              type === 'expression' ? category : undefined,
+              stage,
+              '발음 정확도 부족',
+              result.overallScore,
+              currentWrongCount
+            );
+            
+            console.log('오답노트 추가 여부:', wasAddedToNotes);
+            
+            // 3번째 틀림이면 오답노트에 새로 추가된 것으로 표시
+            if (wasAddedToNotes) {
+              console.log('오답노트에 새로 추가됨:', currentItem.english, '틀린 횟수:', currentWrongCount);
+              setNewWrongAnswerNotes(prev => [...prev, currentItem.english]);
+            }
+            
             setWrongAnswers(prev => [...prev, currentItem]);
+          } else {
+            // 정답을 맞혔으면 오답 추적에서 제거
+            wrongAnswerTracker.recordCorrectAnswer(currentItem.id, type);
           }
           
-          // 3번 시도 후 자동으로 다음 문제로 넘어가기
-          const currentAttempts = (attempts[currentIndex] || 0) + 1;
-          if (currentAttempts >= 3 && result.overallScore < 70) {
-            // 3번 시도 후 2초 뒤에 자동으로 다음 문제로 넘어가기
-            setTimeout(() => {
-              if (currentIndex < items.length - 1) {
-                setCurrentIndex(currentIndex + 1);
-                setCurrentResult(null);
-                setRecognizedText('');
-              } else {
-                completeStage();
-              }
-            }, 2000);
+          // 3번 시도 후 자동으로 다음 문제로 넘어가기 (오답 연습 모드에서는 제한 없음)
+          if (!practiceId) {
+            const currentAttempts = (attempts[currentIndex] || 0) + 1;
+            if (currentAttempts >= 3 && result.overallScore < 70) {
+              // 3번 시도 후 2초 뒤에 자동으로 다음 문제로 넘어가기
+              setTimeout(() => {
+                if (currentIndex < items.length - 1) {
+                  setCurrentIndex(currentIndex + 1);
+                  setCurrentResult(null);
+                  setRecognizedText('');
+                } else {
+                  // 마지막 문제에서 3번 틀렸을 때도 단계 완료 처리
+                  console.log('마지막 문제에서 3번 틀림 - 단계 완료 처리');
+                  completeStage();
+                }
+              }, 2000);
+            }
+          } else {
+            console.log('오답 연습 모드 - 3번 실패 제한 없음, 계속 시도 가능');
           }
           
         } catch (error) {
@@ -240,52 +321,39 @@ function LearnPageContent() {
         setCurrentResult(null);
         setRecognizedText(''); // 인식된 텍스트 초기화
       } else {
-        // 단계 완료
-        completeStage();
+        // 마지막 문제 완료
+        if (practiceId) {
+          // 오답 연습 모드: 오답노트로 돌아가기
+          window.location.href = type === 'expression' ? '/notes/expression' : '/notes/vocabulary';
+        } else {
+          // 일반 학습 모드: 단계 완료 처리
+          completeStage();
+        }
       }
     }
   };
 
   const completeStage = () => {
-    if (stageInfo) {
+    console.log('completeStage 호출됨:', { level, category, stage, type, stageInfo, practiceId });
+    
+    if (practiceId) {
+      // 오답 연습 모드: 단계 완료 처리 없이 바로 완료 화면 표시
+      console.log('오답 연습 모드 - 단계 완료 처리 생략');
+      setIsCompleted(true);
+    } else if (stageInfo) {
+      // 일반 학습 모드: 기존 단계 완료 처리
       const averageScore = sessionResults.length > 0 
-        ? sessionResults.reduce((sum, result) => sum + result.overallScore, 0) / sessionResults.length
+        ? Math.round(sessionResults.reduce((sum, result) => sum + result.overallScore, 0) / sessionResults.length)
         : 0;
       
-      stageManager.completeStage(level, category, stage, averageScore);
-      
-      // 오답노트 저장
-      if (wrongAnswers.length > 0) {
-        saveWrongAnswers();
-      }
-      
+      // 단어 학습의 경우 카테고리를 'daily_conversation'으로 설정
+      const finalCategory = type === 'vocabulary' ? 'daily_conversation' : category;
+      console.log('단계 완료 처리:', { level, finalCategory, stage, averageScore, type });
+      stageManager.completeStage(level, finalCategory, stage, averageScore, type);
       setIsCompleted(true);
+    } else {
+      console.log('stageInfo가 없어서 단계 완료 처리 불가');
     }
-  };
-
-  const saveWrongAnswers = () => {
-    const existingNotes = JSON.parse(localStorage.getItem('lexilearn-notes') || '[]');
-    const newNotes = wrongAnswers.map((item) => {
-      const itemIndex = items.findIndex(i => i.id === item.id);
-      const itemAttempts = attempts[itemIndex] || 0;
-      const itemResult = sessionResults.find(r => r.overallScore < 70);
-      
-      return {
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-        type: type,
-        content: item.english,
-        korean: item.korean,
-        difficulty: 100 - (itemResult?.overallScore || 0),
-        attempts: itemAttempts,
-        lastAttempt: new Date(),
-        mistakes: ['발음 정확도 부족'],
-        level: level,
-        category: type === 'expression' ? category : undefined,
-        stage: stage
-      };
-    });
-    
-    localStorage.setItem('lexilearn-notes', JSON.stringify([...existingNotes, ...newNotes]));
   };
 
   const getCategoryName = (cat: string) => {
@@ -345,16 +413,33 @@ function LearnPageContent() {
                 <div className="text-gray-600">통과</div>
               </div>
               <div className="bg-gray-50 rounded-lg p-6">
-                <div className="text-2xl font-bold text-red-600 mb-2">{wrongAnswers.length}</div>
-                <div className="text-gray-600">오답노트</div>
+                <div className="text-2xl font-bold text-red-600 mb-2">{newWrongAnswerNotes.length}</div>
+                <div className="text-gray-600">새 오답노트</div>
               </div>
             </div>
 
-            {wrongAnswers.length > 0 && (
+            {newWrongAnswerNotes.length > 0 && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-                <h3 className="text-lg font-bold text-yellow-800 mb-2">📝 오답노트에 저장됨</h3>
-                <p className="text-yellow-700">
-                  {wrongAnswers.length}개의 문제가 오답노트에 자동으로 저장되었습니다.
+                <h3 className="text-lg font-bold text-yellow-800 mb-2">📝 오답노트에 새로 추가됨</h3>
+                <p className="text-yellow-700 mb-3">
+                  {newWrongAnswerNotes.length}개의 문제가 3번 틀려서 오답노트에 자동으로 저장되었습니다.
+                </p>
+                <div className="text-sm text-yellow-600">
+                  <strong>새로 추가된 항목:</strong>
+                  <ul className="list-disc list-inside mt-2">
+                    {newWrongAnswerNotes.map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+            
+            {wrongAnswers.length > 0 && newWrongAnswerNotes.length === 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+                <h3 className="text-lg font-bold text-blue-800 mb-2">📊 학습 진행 상황</h3>
+                <p className="text-blue-700">
+                  {wrongAnswers.length}개의 문제를 틀렸지만, 아직 3번 미만이므로 오답노트에 추가되지 않았습니다.
                 </p>
               </div>
             )}
@@ -368,25 +453,38 @@ function LearnPageContent() {
                   🏠 홈으로 돌아가기
                 </button>
                 
-                <button
-                  onClick={() => {
-                    if (type === 'expression') {
-                      window.location.href = `/expression/stages?level=${level}&category=${category}`;
-                    } else {
-                      window.location.href = `/vocabulary/stages?level=${level}`;
-                    }
-                  }}
-                  className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
-                >
-                  📋 30단계 선택으로
-                </button>
-                
-                <button
-                  onClick={() => window.location.href = `/learn?type=${type}&level=${level}&category=${category}&stage=${stage + 1}`}
-                  className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
-                >
-                  ➡️ 다음 단계로
-                </button>
+                {practiceId ? (
+                  // 오답 연습 모드: 오답노트로 돌아가기 버튼만 표시
+                  <button
+                    onClick={() => window.location.href = type === 'expression' ? '/notes/expression' : '/notes/vocabulary'}
+                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
+                  >
+                    📝 오답노트로 돌아가기
+                  </button>
+                ) : (
+                  // 일반 학습 모드: 기존 버튼들 표시
+                  <>
+                    <button
+                      onClick={() => {
+                        if (type === 'expression') {
+                          window.location.href = `/expression/stages?level=${level}&category=${category}`;
+                        } else {
+                          window.location.href = `/vocabulary/stages?level=${level}`;
+                        }
+                      }}
+                      className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
+                    >
+                      📋 30단계 선택으로
+                    </button>
+                    
+                    <button
+                      onClick={() => window.location.href = `/learn?type=${type}&level=${level}&category=${category}&stage=${stage + 1}`}
+                      className="bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
+                    >
+                      ➡️ 다음 단계로
+                    </button>
+                  </>
+                )}
               </div>
               
               <div className="flex flex-wrap justify-center gap-4">
@@ -445,7 +543,7 @@ function LearnPageContent() {
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold text-gray-800">
-              {type === 'expression' ? '표현 학습' : '단어 학습'}
+              {practiceId ? '오답 연습' : (type === 'expression' ? '표현 학습' : '단어 학습')}
             </h1>
             <span className="text-sm text-gray-500">
               문제 {currentIndex + 1} / {items.length}
@@ -612,15 +710,20 @@ function LearnPageContent() {
             {!isRecording ? (
               <button
                 onClick={startRecording}
-                disabled={(attempts[currentIndex] || 0) >= 3 || isRecording}
+                disabled={practiceId ? isRecording : ((attempts[currentIndex] || 0) >= 3 || isRecording)}
                 className={`font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all text-xl ${
-                  (attempts[currentIndex] || 0) >= 3 || isRecording
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-red-500 hover:bg-red-600 text-white'
+                  practiceId ? 
+                    (isRecording ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600 text-white') :
+                    ((attempts[currentIndex] || 0) >= 3 || isRecording
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-red-500 hover:bg-red-600 text-white')
                 }`}
               >
-                {(attempts[currentIndex] || 0) >= 3 ? '❌ 시도 횟수 초과' : 
-                 speechSupported ? '🎤 음성 인식 시작' : '🎤 발음 연습하기'}
+                {practiceId ? 
+                  (speechSupported ? '🎤 음성 인식 시작' : '🎤 발음 연습하기') :
+                  ((attempts[currentIndex] || 0) >= 3 ? '❌ 시도 횟수 초과' : 
+                   speechSupported ? '🎤 음성 인식 시작' : '🎤 발음 연습하기')
+                }
               </button>
             ) : (
               <div className="bg-red-500 text-white font-bold py-4 px-8 rounded-full shadow-lg text-xl animate-pulse">
@@ -636,13 +739,13 @@ function LearnPageContent() {
                 onClick={handleNext}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-8 rounded-full shadow-lg transform hover:scale-105 transition-all"
               >
-                {currentIndex < items.length - 1 ? '다음 문제 →' : '단계 완료!'}
+                {currentIndex < items.length - 1 ? '다음 문제 →' : (practiceId ? '오답노트로 돌아가기' : '단계 완료!')}
               </button>
             </div>
           )}
           
-          {/* 오답(70점 미만) 시에는 안내 메시지만 표시 */}
-          {currentResult && currentResult.overallScore < 70 && (
+          {/* 오답(70점 미만) 시에는 안내 메시지만 표시 (오답 연습 모드에서는 제외) */}
+          {currentResult && currentResult.overallScore < 70 && !practiceId && (
             <div className="text-center">
               {(attempts[currentIndex] || 0) >= 3 ? (
                 <p className="text-orange-600 font-medium">
@@ -679,8 +782,8 @@ function LearnPageContent() {
                 <div className="text-sm text-gray-600">통과</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-red-600">{wrongAnswers.length}</div>
-                <div className="text-sm text-gray-600">오답노트</div>
+                <div className="text-2xl font-bold text-red-600">{newWrongAnswerNotes.length}</div>
+                <div className="text-sm text-gray-600">새 오답노트</div>
               </div>
             </div>
           </div>
