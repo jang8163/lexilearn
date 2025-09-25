@@ -387,7 +387,7 @@ export interface SpeakingResult {
       fluency: Math.round(fluency),
       pronunciation: Math.round(pronunciation),
       overallScore: Math.round(overallScore),
-      feedback: this.generateFeedbackWithRecognition(overallScore, recognizedText, targetText),
+      feedback: this.generateFeedbackWithRecognition(overallScore),
       timestamp: new Date()
     };
 
@@ -531,8 +531,7 @@ export interface SpeakingResult {
     return matrix[str2.length][str1.length];
   }
 
-  private generateFeedbackWithRecognition(score: number, _recognized: string, _target: string): string {
-    // const similarity = this.calculateTextSimilarity(recognized.toLowerCase(), target.toLowerCase()); // 사용하지 않으므로 주석 처리
+  private generateFeedbackWithRecognition(score: number): string {
     
     if (score >= 90) {
       return "🎉 완벽해요! 발음이 정말 훌륭합니다!";

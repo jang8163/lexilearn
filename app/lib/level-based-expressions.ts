@@ -61,7 +61,7 @@ export class LevelBasedExpressionManager {
   startSession(level: string, category: string, stage: number): ExpressionSession {
     const expressions = EXPRESSIONS_DATA.filter(
       expr => expr.level === level && expr.category === category && expr.stage === stage
-    );
+    ) as Expression[];
 
     this.currentSession = {
       expressions,
