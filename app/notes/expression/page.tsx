@@ -44,18 +44,18 @@ export default function ExpressionNotesPage() {
     setNotes(updatedNotes);
   };
 
-  const updateAttempts = (id: string) => {
-    // ID에서 타입과 아이템 ID 추출
-    const parts = id.split('_');
-    const type = parts[0] as 'expression' | 'vocabulary';
-    const itemId = parts.slice(1).join('_');
-    
-    wrongAnswerTracker.updateAttempts(itemId, type);
-    
-    // 상태 업데이트
-    const updatedNotes = wrongAnswerTracker.getWrongAnswerNotesByType('expression');
-    setNotes(updatedNotes);
-  };
+  // const updateAttempts = (id: string) => { // 사용하지 않으므로 주석 처리
+  //   // ID에서 타입과 아이템 ID 추출
+  //   const parts = id.split('_');
+  //   const type = parts[0] as 'expression' | 'vocabulary';
+  //   const itemId = parts.slice(1).join('_');
+  //   
+  //   wrongAnswerTracker.updateAttempts(itemId, type);
+  //   
+  //   // 상태 업데이트
+  //   const updatedNotes = wrongAnswerTracker.getWrongAnswerNotesByType('expression');
+  //   setNotes(updatedNotes);
+  // };
 
   const practiceWrongAnswer = (note: WrongAnswerItem) => {
     // 오답 연습을 위한 URL 생성

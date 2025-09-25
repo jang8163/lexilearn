@@ -288,7 +288,6 @@ export interface SpeakingResult {
     this.recognition!.maxAlternatives = 3; // 여러 대안 결과 받기
 
     let finalResult = '';
-    let interimResult = '';
 
     this.recognition!.onresult = (event) => {
       let interimTranscript = '';
@@ -303,7 +302,7 @@ export interface SpeakingResult {
         }
       }
       
-      interimResult = interimTranscript;
+      // interimResult = interimTranscript; // 사용하지 않으므로 주석 처리
       
       if (finalTranscript) {
         finalResult = finalTranscript.trim();
@@ -538,7 +537,7 @@ export interface SpeakingResult {
   }
 
   private generateFeedbackWithRecognition(score: number, recognized: string, target: string): string {
-    const similarity = this.calculateTextSimilarity(recognized.toLowerCase(), target.toLowerCase());
+    // const similarity = this.calculateTextSimilarity(recognized.toLowerCase(), target.toLowerCase()); // 사용하지 않으므로 주석 처리
     
     if (score >= 90) {
       return "🎉 완벽해요! 발음이 정말 훌륭합니다!";
