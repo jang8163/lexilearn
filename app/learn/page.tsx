@@ -87,10 +87,15 @@ function LearnPageContent() {
     function loadDefaultItems() {
       // 학습 아이템 가져오기
       if (type === 'expression') {
+        console.log('표현 학습 데이터 로딩:', { level, category, stage });
         const expressions = getExpressionsByStage(level, category, stage);
+        console.log('로드된 표현 개수:', expressions.length);
+        console.log('첫 번째 표현:', expressions[0]);
         setItems(expressions);
       } else {
+        console.log('단어 학습 데이터 로딩:', { level, stage });
         const vocabulary = getVocabularyByStage(level, stage);
+        console.log('로드된 단어 개수:', vocabulary.length);
         // Vocabulary 타입을 LearningItem 타입으로 변환
         const vocabularyItems: LearningItem[] = vocabulary.map(vocab => ({
           id: vocab.id,
@@ -208,8 +213,8 @@ function LearnPageContent() {
             [currentIndex]: (prev[currentIndex] || 0) + 1
           }));
           
-          // 70점 미만이면 오답 추적기에 기록
-          if (result.overallScore < 70) {
+          // 60점 미만이면 오답 추적기에 기록 (기준 완화: 70 → 60)
+          if (result.overallScore < 60) {
             const itemKey = `${type}_${currentItem.id}`;
             const currentWrongCount = (wrongAnswerCounts[itemKey] || 0) + 1;
             
@@ -515,6 +520,12 @@ function LearnPageContent() {
         <div className="text-center">
           <div className="text-6xl mb-4">📚</div>
           <p className="text-xl text-gray-600">학습 내용을 불러오는 중...</p>
+          <p className="text-sm text-gray-500 mt-2">
+            로드된 항목: {items.length}개, 현재 인덱스: {currentIndex}
+          </p>
+          <p className="text-sm text-gray-500">
+            파라미터: {type} - {level} - {category} - {stage}
+          </p>
         </div>
       </div>
     );

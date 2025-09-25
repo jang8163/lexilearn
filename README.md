@@ -9,7 +9,15 @@
 
 **🎉 [LexiLearn 사이트 바로가기](https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app)**
 
-GitHub에 방문하신 분들도 위 링크를 통해 바로 사이트를 체험해보실 수 있습니다!
+### 🚀 즉시 체험하기
+- **클릭 한 번으로 바로 시작**: 위 링크를 클릭하면 즉시 사이트를 사용할 수 있습니다
+- **회원가입 불필요**: 별도의 가입이나 로그인 없이 바로 학습을 시작할 수 있습니다
+- **모든 기능 무료**: 발음 평가, 학습 콘텐츠, 진도 관리 등 모든 기능을 무료로 이용하실 수 있습니다
+
+### 📱 접속 방법
+1. **PC/모바일**: 위 링크를 클릭하거나 주소창에 입력
+2. **QR 코드**: 모바일에서 QR 코드로 빠른 접속
+3. **북마크**: 즐겨찾기에 추가하여 언제든지 빠른 접속
 
 ## 📋 프로젝트 소개
 
@@ -92,12 +100,24 @@ npm start
 
 ## 📱 사용 방법
 
+### 🎯 빠른 시작 (30초)
 1. **사이트 접속**: [https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app](https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app)
-2. **학습 모드 선택**: 표현 학습 또는 단어 학습
-3. **레벨 선택**: 초급/중급/고급 중 선택
-4. **발음 연습**: 마이크를 사용하여 발음 연습
-5. **AI 평가**: 실시간 발음 정확도 확인
-6. **진도 관리**: 학습 진행 상황 추적
+2. **마이크 권한 허용**: 브라우저에서 마이크 사용을 허용해주세요
+3. **학습 모드 선택**: 표현 학습 또는 단어 학습
+4. **레벨 선택**: 초급/중급/고급 중 선택
+5. **발음 연습**: 마이크를 사용하여 발음 연습
+6. **AI 평가**: 실시간 발음 정확도 확인
+
+### 🔧 시스템 요구사항
+- **브라우저**: Chrome, Firefox, Safari, Edge (최신 버전 권장)
+- **마이크**: 내장 마이크 또는 외장 마이크
+- **인터넷 연결**: 안정적인 인터넷 연결
+- **HTTPS**: 보안을 위해 HTTPS 환경에서만 작동
+
+### 💡 사용 팁
+- **조용한 환경**: 배경 소음이 적은 곳에서 사용하세요
+- **명확한 발음**: 마이크에 가까이서 명확하게 발음해주세요
+- **정기적 학습**: 매일 조금씩 꾸준히 학습하는 것이 효과적입니다
 
 ## 🎨 스크린샷
 
@@ -118,6 +138,28 @@ npm start
 3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
+## 🚀 배포 정보
+
+### 자동 배포
+- **Vercel**: main 브랜치 푸시 시 자동 배포
+- **GitHub Actions**: CI/CD 파이프라인 구성
+- **프리뷰 배포**: Pull Request 시 자동 프리뷰 생성
+
+### 배포 명령어
+```bash
+# 프로덕션 배포
+npm run deploy
+
+# 프리뷰 배포
+npm run preview
+
+# 빌드 분석
+npm run analyze
+```
+
+### 배포 가이드
+자세한 배포 설정은 [DEPLOYMENT.md](./DEPLOYMENT.md)를 참조하세요.
 
 ## 📄 라이선스
 

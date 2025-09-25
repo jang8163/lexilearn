@@ -281,12 +281,34 @@ export interface SpeakingResult {
   private startNewRecognition(resolve: (value: string) => void, reject: (reason?: Error) => void): void {
     this.isListening = true;
 
+    // 음성 인식 설정 최적화
+    this.recognition!.continuous = false;
+    this.recognition!.interimResults = true; // 중간 결과도 받기
+    this.recognition!.lang = 'en-US';
+    this.recognition!.maxAlternatives = 3; // 여러 대안 결과 받기
+
+    let finalResult = '';
+    let interimResult = '';
+
     this.recognition!.onresult = (event) => {
-      const result = event.results[0];
-      if (result.isFinal) {
-        const transcript = result[0].transcript.trim();
+      let interimTranscript = '';
+      let finalTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      
+      interimResult = interimTranscript;
+      
+      if (finalTranscript) {
+        finalResult = finalTranscript.trim();
         this.isListening = false;
-        resolve(transcript);
+        resolve(finalResult);
       }
     };
 
@@ -333,21 +355,38 @@ export interface SpeakingResult {
     }
   }
 
-  // 실제 음성 인식 기반 발음 평가
+  // 실제 음성 인식 기반 발음 평가 (개선된 버전)
   evaluatePronunciationWithSpeechRecognition(recognizedText: string, targetText: string): SpeakingResult {
     const similarity = this.calculateTextSimilarity(recognizedText.toLowerCase(), targetText.toLowerCase());
     
-    // 유사도 기반 점수 계산
+    // 유사도 기반 점수 계산 (더 관대한 기준)
     let accuracy = similarity * 100;
-    let fluency = Math.min(100, accuracy + (Math.random() - 0.5) * 10);
-    let pronunciation = Math.min(100, accuracy + (Math.random() - 0.5) * 8);
     
-    // 최소 점수 보장 (너무 낮은 점수 방지)
-    accuracy = Math.max(accuracy, 30);
-    fluency = Math.max(fluency, 30);
-    pronunciation = Math.max(pronunciation, 30);
+    // 유사도에 따른 보너스 점수 추가 (100점 초과 방지)
+    if (similarity >= 0.8) {
+      accuracy = Math.min(100, accuracy + 15); // 높은 유사도에 보너스
+    } else if (similarity >= 0.6) {
+      accuracy = Math.min(100, accuracy + 10); // 중간 유사도에 보너스
+    } else if (similarity >= 0.4) {
+      accuracy = Math.min(100, accuracy + 5); // 낮은 유사도에도 보너스
+    }
     
-    const overallScore = (accuracy + fluency + pronunciation) / 3;
+    // 유창성과 발음 점수 계산 (더 관대하게)
+    let fluency = Math.min(100, accuracy + (Math.random() - 0.3) * 15); // 범위 확대
+    let pronunciation = Math.min(100, accuracy + (Math.random() - 0.3) * 12); // 범위 확대
+    
+    // 최소 점수 보장 (더 관대하게)
+    accuracy = Math.max(accuracy, 50); // 30 → 50으로 상향
+    fluency = Math.max(fluency, 45); // 30 → 45로 상향
+    pronunciation = Math.max(pronunciation, 45); // 30 → 45로 상향
+    
+    // 최대 점수 100점 보장
+    accuracy = Math.min(100, accuracy);
+    fluency = Math.min(100, fluency);
+    pronunciation = Math.min(100, pronunciation);
+    
+    // 전체 점수 계산 (가중치 적용)
+    const overallScore = Math.min(100, (accuracy * 0.5 + fluency * 0.25 + pronunciation * 0.25));
     
     const result: SpeakingResult = {
       accuracy: Math.round(accuracy),
@@ -367,14 +406,107 @@ export interface SpeakingResult {
   }
 
   private calculateTextSimilarity(text1: string, text2: string): number {
-    // 간단한 문자열 유사도 계산 (Levenshtein distance 기반)
-    const longer = text1.length > text2.length ? text1 : text2;
-    const shorter = text1.length > text2.length ? text2 : text1;
+    // 개선된 문자열 유사도 계산
+    const normalized1 = this.normalizeText(text1);
+    const normalized2 = this.normalizeText(text2);
+    
+    // 완전 일치 확인
+    if (normalized1 === normalized2) return 1.0;
+    
+    // 부분 일치 확인 (단어 단위)
+    const words1 = normalized1.split(/\s+/);
+    const words2 = normalized2.split(/\s+/);
+    
+    let matchCount = 0;
+    const maxWords = Math.max(words1.length, words2.length);
+    
+    // 각 단어에 대해 가장 유사한 단어 찾기
+    for (const word1 of words1) {
+      let bestMatch = 0;
+      for (const word2 of words2) {
+        const similarity = this.calculateWordSimilarity(word1, word2);
+        bestMatch = Math.max(bestMatch, similarity);
+      }
+      matchCount += bestMatch;
+    }
+    
+    // 전체 유사도 계산
+    const wordSimilarity = matchCount / maxWords;
+    
+    // Levenshtein distance 기반 유사도도 계산
+    const longer = normalized1.length > normalized2.length ? normalized1 : normalized2;
+    const shorter = normalized1.length > normalized2.length ? normalized2 : normalized1;
     
     if (longer.length === 0) return 1.0;
     
     const distance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - distance) / longer.length;
+    const charSimilarity = (longer.length - distance) / longer.length;
+    
+    // 단어 유사도와 문자 유사도를 결합 (단어 유사도에 더 가중치)
+    return (wordSimilarity * 0.7 + charSimilarity * 0.3);
+  }
+
+  private normalizeText(text: string): string {
+    return text
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '') // 특수문자 제거
+      .replace(/\s+/g, ' ') // 여러 공백을 하나로
+      .trim();
+  }
+
+  private calculateWordSimilarity(word1: string, word2: string): number {
+    // 단어 유사도 계산 (발음 유사성 고려)
+    if (word1 === word2) return 1.0;
+    
+    // 길이 차이가 너무 크면 낮은 점수
+    const lengthDiff = Math.abs(word1.length - word2.length);
+    if (lengthDiff > Math.max(word1.length, word2.length) * 0.5) {
+      return 0.1;
+    }
+    
+    // Levenshtein distance 기반 유사도
+    const distance = this.levenshteinDistance(word1, word2);
+    const maxLength = Math.max(word1.length, word2.length);
+    
+    let similarity = (maxLength - distance) / maxLength;
+    
+    // 발음 유사성 보정 (일반적인 발음 오류 패턴)
+    similarity = this.applyPronunciationCorrections(word1, word2, similarity);
+    
+    return Math.max(0, similarity);
+  }
+
+  private applyPronunciationCorrections(word1: string, word2: string, baseSimilarity: number): number {
+    // 일반적인 발음 오류 패턴에 대한 보정
+    const corrections = [
+      // 모음 교체
+      { pattern: /[aeiou]/g, replacement: '[aeiou]' },
+      // 유사한 자음
+      { pattern: /[bp]/g, replacement: '[bp]' },
+      { pattern: /[td]/g, replacement: '[td]' },
+      { pattern: /[kg]/g, replacement: '[kg]' },
+      { pattern: /[fv]/g, replacement: '[fv]' },
+      { pattern: /[sz]/g, replacement: '[sz]' },
+      { pattern: /[lr]/g, replacement: '[lr]' },
+      { pattern: /[mn]/g, replacement: '[mn]' }
+    ];
+    
+    let correctedSimilarity = baseSimilarity;
+    
+    // 각 보정 패턴 적용
+    for (const correction of corrections) {
+      const regex1 = new RegExp(correction.pattern.source, 'g');
+      const regex2 = new RegExp(correction.pattern.source, 'g');
+      
+      const normalized1 = word1.replace(regex1, correction.replacement);
+      const normalized2 = word2.replace(regex2, correction.replacement);
+      
+      if (normalized1 === normalized2) {
+        correctedSimilarity = Math.max(correctedSimilarity, baseSimilarity + 0.2);
+      }
+    }
+    
+    return Math.min(1.0, correctedSimilarity);
   }
 
   private levenshteinDistance(str1: string, str2: string): number {
@@ -408,16 +540,18 @@ export interface SpeakingResult {
   private generateFeedbackWithRecognition(score: number, recognized: string, target: string): string {
     const similarity = this.calculateTextSimilarity(recognized.toLowerCase(), target.toLowerCase());
     
-    if (similarity > 0.9) {
-      return "Perfect! Your pronunciation is excellent and very clear.";
-    } else if (similarity > 0.8) {
-      return "Great job! Your pronunciation is very good with minor differences.";
-    } else if (similarity > 0.7) {
-      return "Good effort! Try to focus on the pronunciation of each word.";
-    } else if (similarity > 0.5) {
-      return "Keep practicing! Listen carefully and try to match the pronunciation.";
+    if (score >= 90) {
+      return "🎉 완벽해요! 발음이 정말 훌륭합니다!";
+    } else if (score >= 80) {
+      return "👏 잘했어요! 발음이 매우 좋습니다!";
+    } else if (score >= 70) {
+      return "👍 좋아요! 조금만 더 연습하면 완벽할 거예요!";
+    } else if (score >= 60) {
+      return "💪 괜찮아요! 조금 더 천천히 발음해보세요!";
+    } else if (score >= 50) {
+      return "🌟 계속 연습해보세요! 오디오를 다시 들어보고 따라해보세요!";
     } else {
-      return "Don't give up! Try listening to the audio again and practice more.";
+      return "💫 포기하지 마세요! 천천히 다시 시도해보세요!";
     }
   }
 
