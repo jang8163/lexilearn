@@ -1,13 +1,13 @@
 # 🎯 LexiLearn - AI 기반 영어 발음 연습 플랫폼
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge&logo=vercel)](https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-blue?style=for-the-badge&logo=vercel)](https://lexilearn-1.vercel.app)
 [![GitHub](https://img.shields.io/badge/GitHub-Repository-black?style=for-the-badge&logo=github)](https://github.com/jang8163/lexilearn)
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.2-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
 
 ## 🌐 라이브 데모
 
-**🎉 [LexiLearn 사이트 바로가기](https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app)**
+**🎉 [LexiLearn 사이트 바로가기](https://lexilearn-1.vercel.app)**
 
 ### 🚀 즉시 체험하기
 - **클릭 한 번으로 바로 시작**: 위 링크를 클릭하면 즉시 사이트를 사용할 수 있습니다
@@ -101,7 +101,7 @@ npm start
 ## 📱 사용 방법
 
 ### 🎯 빠른 시작 (30초)
-1. **사이트 접속**: [https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app](https://lexilearn-9tcotygge-jangwonjuns-projects.vercel.app)
+1. **사이트 접속**: [https://lexilearn-1.vercel.app](https://lexilearn-1.vercel.app)
 2. **마이크 권한 허용**: 브라우저에서 마이크 사용을 허용해주세요
 3. **학습 모드 선택**: 표현 학습 또는 단어 학습
 4. **레벨 선택**: 초급/중급/고급 중 선택
