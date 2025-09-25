@@ -290,19 +290,14 @@ export interface SpeakingResult {
     let finalResult = '';
 
     this.recognition!.onresult = (event) => {
-      let interimTranscript = '';
       let finalTranscript = '';
       
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
         }
       }
-      
-      // interimResult = interimTranscript; // 사용하지 않으므로 주석 처리
       
       if (finalTranscript) {
         finalResult = finalTranscript.trim();
@@ -536,7 +531,7 @@ export interface SpeakingResult {
     return matrix[str2.length][str1.length];
   }
 
-  private generateFeedbackWithRecognition(score: number, recognized: string, target: string): string {
+  private generateFeedbackWithRecognition(score: number, _recognized: string, _target: string): string {
     // const similarity = this.calculateTextSimilarity(recognized.toLowerCase(), target.toLowerCase()); // 사용하지 않으므로 주석 처리
     
     if (score >= 90) {

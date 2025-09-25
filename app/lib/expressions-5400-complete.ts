@@ -43235,11 +43235,11 @@ export const TOTAL_EXPRESSIONS = 5400;
 
 // 유틸리티 함수들
 export function getExpressionsByCategory(category: string): Expression[] {
-  return EXPRESSIONS_DATA.filter(expr => expr.category === category);
+  return EXPRESSIONS_DATA.filter(expr => expr.category === category) as Expression[];
 }
 
 export function getExpressionsByLevel(level: 'beginner' | 'intermediate' | 'advanced'): Expression[] {
-  return EXPRESSIONS_DATA.filter(expr => expr.level === level);
+  return EXPRESSIONS_DATA.filter(expr => expr.level === level) as Expression[];
 }
 
 export function getExpressionsByStage(level: string, category: string, stage: number): Expression[] {
@@ -43247,9 +43247,9 @@ export function getExpressionsByStage(level: string, category: string, stage: nu
     expr.level === level &&
     expr.category === category && 
     expr.stage === stage
-  );
+  ) as Expression[];
 }
 
 export function getExpressionById(id: string): Expression | undefined {
-  return EXPRESSIONS_DATA.find(expr => expr.id === id);
+  return EXPRESSIONS_DATA.find(expr => expr.id === id) as Expression | undefined;
 }
